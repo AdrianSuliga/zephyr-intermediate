@@ -3,32 +3,52 @@
 
 LOG_MODULE_REGISTER(demo, LOG_LEVEL_DBG);
 
-#define STACK_SIZE 1024
+#define STACK_SIZE      1024
+#define PRIO            5
+#define INCREMENTS      1000000   /* each thread increments this many times */
 
-#define PRIO_A 5
-#define PRIO_B 5
+/* Shared state - intentionally unprotected */
+static volatile uint32_t counter;
 
-void thread_a_fn(void *p1, void *p2, void *p3)
+static struct k_sem done_sem;
+
+void worker_fn(void *p1, void *p2, void *p3)
 {
-    while (1) {
-        k_msleep(200);
+    const char *name = k_thread_name_get(k_current_get());
+
+    for (int i = 0; i < INCREMENTS; i++) {
+        counter++;
     }
+
+    LOG_INF("[%s] finished", name);
+    k_sem_give(&done_sem);
 }
 
-void thread_b_fn(void *p1, void *p2, void *p3)
-{
-    while (1) {
-        k_msleep(300);
-    }
-}
-
-K_THREAD_DEFINE(thread_a, STACK_SIZE, thread_a_fn,
-                NULL, NULL, NULL, PRIO_A, 0, 0);
-K_THREAD_DEFINE(thread_b, STACK_SIZE, thread_b_fn,
-                NULL, NULL, NULL, PRIO_B, 0, 0);
+K_THREAD_DEFINE(worker_a, STACK_SIZE, worker_fn, NULL, NULL, NULL,
+                PRIO, 0, 0);
+K_THREAD_DEFINE(worker_b, STACK_SIZE, worker_fn, NULL, NULL, NULL,
+                PRIO, 0, 0);
 
 int main(void)
 {
+    k_sem_init(&done_sem, 0, 2);
+
+    LOG_INF("=== L2 Demo 1: Shared Counter Corruption ===");
+    LOG_INF("Expected final value: %d", INCREMENTS * 2);
+
+    /* Wait for both workers to complete */
+    k_sem_take(&done_sem, K_FOREVER);
+    k_sem_take(&done_sem, K_FOREVER);
+
+    LOG_INF("Actual  final value: %u", counter);
+
+    if (counter == INCREMENTS * 2) {
+        LOG_WRN("No race this run - timing-dependent, try again");
+    } else {
+        LOG_ERR("Race condition confirmed: lost %d updates",
+                (INCREMENTS * 2) - counter);
+    }
+
     return 0;
 }
 
