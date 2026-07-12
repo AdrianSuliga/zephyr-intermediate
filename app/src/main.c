@@ -148,17 +148,17 @@ int main(void)
     LOG_INF("=== L3 Demo 2: Workqueue Patterns ===");
 
     /* --- Part 1: Bottom-half --- */
-    LOG_INF("--- Part 1: Bottom-half (5 submissions) ---");
+    LOG_INF("\n--- Part 1: Bottom-half (5 submissions) ---");
     /* producer thread is already running; wait for it to finish */
     k_msleep(1100);
 
     /* --- Part 2: Debounce --- */
-    LOG_INF("--- Part 2: Debounce ---");
+    LOG_INF("\n--- Part 2: Debounce ---");
     simulate_bounce();
     k_msleep(400);   /* wait for handler + margin */
 
     /* --- Part 3: Periodic --- */
-    LOG_INF("--- Part 3a: Self-rescheduling (expect ~205ms intervals) ---");
+    LOG_INF("\n--- Part 3a: Self-rescheduling (expect ~205ms intervals) ---");
     selfreschedule_count = 0;
     k_work_schedule(&selfreschedule_work, K_MSEC(200));
     k_msleep(1400);   /* 6 * 205ms ~= 1230ms + margin */
@@ -169,7 +169,8 @@ int main(void)
     k_msleep(1400);
     k_timer_stop(&periodic_timer);
 
-    LOG_INF("=== Complete ===");
+    k_msleep(1000);
+    LOG_INF("\n=== Complete ===");
 
     return 0;
 }
