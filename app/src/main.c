@@ -1,50 +1,41 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
-LOG_MODULE_REGISTER(l1_task1, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(l2_task1, LOG_LEVEL_DBG);
 
 #define STACK_SIZE 1024
+#define INCREMENT 5000000
 
-#define PRIO_COOP (-1)
-#define PRIO_HIGH   3
-#define PRIO_MED    5
-#define PRIO_LOW    7
+#define PRIORITY 5
 
-void thread_coop_fn(void *p1, void *p2, void *p3)
+static int counter = 0;
+
+K_SEM_DEFINE(counter_finished, 0, 2);
+K_MUTEX_DEFINE(counter_access);
+
+void thread_fn(void *p1, void *p2, void *p3)
 {
-    for (int i = 0; i < 5; ++i) {
-        LOG_INF("T_COOP busy work, tick=%u", k_uptime_get_32());
-        k_busy_wait(40000);
+    for (int i = 0; i < INCREMENT; ++i) {
+        k_mutex_lock(&counter_access, K_FOREVER);
+        ++counter;
+        k_mutex_unlock(&counter_access);
     }
 
-    k_yield();
+    k_sem_give(&counter_finished);
 }
 
-void thread_high_fn(void *p1, void *p2, void *p3)
+K_THREAD_DEFINE(t_fn_1, STACK_SIZE, thread_fn, NULL, NULL, NULL, PRIORITY, 0, 0);
+K_THREAD_DEFINE(t_fn_2, STACK_SIZE, thread_fn, NULL, NULL, NULL, PRIORITY, 0, 0);
+
+int main()
 {
-    while (1) {
-        LOG_INF("T_HIGH running, tick=%u", k_uptime_get_32());
-        k_msleep(100);
-    }
-}
+    k_sem_take(&counter_finished, K_FOREVER);
+    k_sem_take(&counter_finished, K_FOREVER);
 
-void thread_med_fn(void *p1, void *p2, void *p3)
-{
-    while (1) {
-        LOG_INF("T_MED running, tick=%u", k_uptime_get_32());
-        k_msleep(200);
-    }
-}
+    LOG_INF("Expected: %d", 2 * INCREMENT);
+    LOG_INF("Actual:   %d", counter);
+    LOG_INF("===================");
+    LOG_INF("Error: %d", 2 * INCREMENT - counter);
 
-void thread_low_fn(void *p1, void *p2, void *p3)
-{
-    while (1) {
-        LOG_INF("T_LOW running, tick=%u", k_uptime_get_32());
-        k_msleep(300);
-    }
+    return 0;
 }
-
-K_THREAD_DEFINE(t_coop_fn, STACK_SIZE, thread_coop_fn, NULL, NULL, NULL, PRIO_COOP, 0, 0);
-K_THREAD_DEFINE(t_high_fn, STACK_SIZE, thread_high_fn, NULL, NULL, NULL, PRIO_HIGH, 0, 0);
-K_THREAD_DEFINE(t_med_fn, STACK_SIZE, thread_med_fn, NULL, NULL, NULL, PRIO_MED, 0, 0);
-K_THREAD_DEFINE(t_low_fn, STACK_SIZE, thread_low_fn, NULL, NULL, NULL, PRIO_LOW, 0, 0);
