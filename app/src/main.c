@@ -6,7 +6,7 @@ LOG_MODULE_REGISTER(l4_task1, LOG_LEVEL_DBG);
 
 #define PRIORITY 5
 #define STACK_SIZE 1024
-#define SUBSCRIBER_QUEUE_SIZE 3
+#define SUBSCRIBER_QUEUE_SIZE 5
 
 struct sensor_data {
     uint32_t id;
@@ -64,10 +64,8 @@ static void sensor_subscriber_thread(void *p1, void *p2, void *p3)
                 data.val1,
                 data.val2);
         
-        // Simulate busy work. Queue will overflow with too many
-        // messages produced and subscriber will be able to only
-        // process some of them, others will be lost.
-        k_sleep(K_MSEC(500));
+        // Simulate busy work.
+        k_sleep(K_MSEC(80));
     }
 }
 
