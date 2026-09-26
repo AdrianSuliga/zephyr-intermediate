@@ -5,10 +5,12 @@
 LOG_MODULE_REGISTER(homework, LOG_LEVEL_INF);
 
 #define STACK_SIZE            2048
-#define CONTROL_PRIORITY         7
+#define CONTROL_PRIORITY         3
 #define MAINTENANCE_PRIORITY     4
 #define EVENT_PERIOD_MS        250
+#define EVENT_DELAY             10
 #define MAINTENANCE_LOAD_US  45000
+#define EVENT_MAX_WRN_COUNT      5
 
 struct control_event {
     uint32_t seq;
@@ -17,6 +19,8 @@ struct control_event {
 
 K_MSGQ_DEFINE(control_queue, sizeof(struct control_event), 4, 4);
 K_SEM_DEFINE(maintenance_start, 0, 1);
+
+static int events_missed = 0;
 
 /* ================================================================== */
 /*  Timer expiry: creates one control event                           */
@@ -43,6 +47,7 @@ static void event_timer_expiry(struct k_timer *timer)
     k_sem_give(&maintenance_start);
 
     /* TODO: Add an application trace event for this sequence. */
+    sys_trace_named_event("event ready", event.seq, event.ready_ms);
 }
 
 K_TIMER_DEFINE(event_timer, event_timer_expiry, NULL);
@@ -66,10 +71,27 @@ static void control_fn(void *p1, void *p2, void *p3)
 
         LOG_INF("[CONTROL] processed seq=%u", event.seq);
 
+        uint32_t processed_time = k_uptime_get();
+
         /* TODO: Define a response-time guarantee. */
         /* TODO: Measure latency and count every deadline miss. */
-        /* TODO: Rate-limit repeated warning messages. */
+        uint32_t latency = processed_time - event.ready_ms;
+        if (latency > EVENT_DELAY) {
+            events_missed++;
+            /* TODO: Rate-limit repeated warning messages. */
+            if (events_missed <= EVENT_MAX_WRN_COUNT) {
+                LOG_WRN("[CONTROL] event seq=%u took too long - %u ms. Expected below %u ms.",
+                        event.seq,
+                        latency,
+                        EVENT_DELAY);
+            }
+
+            if (events_missed == EVENT_MAX_WRN_COUNT) {
+                LOG_WRN("[CONTROL] Max limit of warning messages for delayed event processing reached!");
+            }
+        }
         /* TODO: Add an application trace event for completion. */
+        sys_trace_named_event("event completed", event.seq, processed_time);
     }
 }
 
