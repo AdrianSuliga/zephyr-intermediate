@@ -84,6 +84,8 @@ ZTEST(temp_alarm_check, test_below_threshold)
 	
 	zassert_equal(status.last_temp, 20, "last_temp must be 20 after set_temperature, got %d", status.last_temp);
 	zassert_false(status.is_alarming, "is_alarming must be false since we stay below threshold");
+	zassert_equal(fake_sensor_sample_fetch_fake.call_count, 1, "sensor_sample_fetch should've been called exactly once");
+	zassert_equal(fake_sensor_channel_get_fake.arg1_val, SENSOR_CHAN_AMBIENT_TEMP, "sensor_channel_get's first argument must be AMBIENT_TEMP");
 }
 
 ZTEST(temp_alarm_check, test_at_threshold)
@@ -145,11 +147,11 @@ ZTEST(temp_alarm_threshold, test_new_threshold_clears_alarm)
 
 	// Raise threshold, check alarm
 	zassert_ok(temp_alarm_set_threshold(50), "setting threshold must succeed");
-	zassert_ok(temp_alarm_check(), "check must succeed");
 	zassert_ok(temp_alarm_get_status(&status), "get_status must succeed");
+	zassert_false(status.is_alarming, "is_alarming must be false");
+	zassert_ok(temp_alarm_check(), "check must succeed");
 
 	// Verify alarm was cleared
-	zassert_false(status.is_alarming, "is_alarming must be false");
 	zassert_equal(status.alarm_count, 1, "alarm_count must be 0, got %d", status.alarm_count);
 	zassert_equal(status.last_error, 0, "last_error must be 0, got %d", status.last_error);
 	zassert_equal(status.last_temp, 40, "last_temp should not be cleared, should be 40, got %d", status.last_temp);
