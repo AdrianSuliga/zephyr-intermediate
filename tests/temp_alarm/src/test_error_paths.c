@@ -142,6 +142,20 @@ ZTEST(temp_alarm_invalid_input, test_set_threshold_out_of_range)
 	 * and keeps the old threshold.
 	 * See TEST_SPEC.md "Suite temp_alarm_invalid_input" #4.
 	 */
+	// Try setting threshold out of range
 	zassert_equal(temp_alarm_set_threshold(-1), -EINVAL, "Passing -1 must result in -EINVAL");
 	zassert_equal(temp_alarm_set_threshold(101), -EINVAL, "Passing 101 must result in -EINVAL");
+
+	// Verify default threshold did not change
+	struct temp_alarm_status status;
+
+	sensor_fake_set_temperature(30);
+	zassert_ok(temp_alarm_check(), "check must succeed");
+	zassert_ok(temp_alarm_get_status(&status), "get_status must succeed");
+	zassert_false(status.is_alarming, "Alarm must not be raised");
+
+	sensor_fake_set_temperature(31);
+	zassert_ok(temp_alarm_check(), "check must succeed");
+	zassert_ok(temp_alarm_get_status(&status), "get_status must succeed");
+	zassert_true(status.is_alarming, "Alarm must be raised");
 }
