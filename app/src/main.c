@@ -87,7 +87,7 @@ static void sensor_health_check_thread(void *p1, void *p2, void *p3)
 
     while (true) {
         int queue_fill = k_msgq_num_used_get(&sensor_queue);
-        if (4 * queue_fill > 3 * QUEUE_SIZE) {
+        if (queue_fill >= 0.75 * QUEUE_SIZE) {
             LOG_WRN("Queue is becoming full - %d/%d", queue_fill, QUEUE_SIZE);
         }
 
