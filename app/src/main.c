@@ -10,7 +10,6 @@ LOG_MODULE_REGISTER(homework, LOG_LEVEL_INF);
 #define EVENT_PERIOD_MS        250
 #define EVENT_DELAY             10
 #define MAINTENANCE_LOAD_US  45000
-#define EVENT_MAX_WRN_COUNT      5
 
 struct control_event {
     uint32_t seq;
@@ -74,21 +73,30 @@ static void control_fn(void *p1, void *p2, void *p3)
         uint32_t processed_time = k_uptime_get();
 
         /* TODO: Define a response-time guarantee. */
+        /* Control work must start after 10 ms so EVENT_DELAY is
+         * defined to be 10. Faulty code has latency of 40 ms while
+         * corrected one has 0 ms. */
+
+        /* Decoded trace of incorrect code is in error_trace/decoded.txt.
+         * The error can be seen (for example) on lines 315-348:
+         * maintenance thread is switched in by the scheduler first
+         * and only after it is switched out control can process the event.
+         * It takes 45 ms which is rounded in logs to 40 ms. */
+
+        /* Decoded trace of correct code is in correct_trace/decoded.txt.
+         * The error does not appear, control thread is chosen by the
+         * scheduler in favor of the maintenance thread. */
+
         /* TODO: Measure latency and count every deadline miss. */
         uint32_t latency = processed_time - event.ready_ms;
         if (latency > EVENT_DELAY) {
             events_missed++;
             /* TODO: Rate-limit repeated warning messages. */
-            if (events_missed <= EVENT_MAX_WRN_COUNT) {
-                LOG_WRN("[CONTROL] event seq=%u took too long - %u ms. Expected below %u ms.",
-                        event.seq,
-                        latency,
-                        EVENT_DELAY);
-            }
-
-            if (events_missed == EVENT_MAX_WRN_COUNT) {
-                LOG_WRN("[CONTROL] Max limit of warning messages for delayed event processing reached!");
-            }
+            LOG_WRN_RATELIMIT("[CONTROL] event seq=%u took too long - %u ms. Expected below %u ms. Total missed events: %d",
+                              event.seq,
+                              latency,
+                              EVENT_DELAY,
+                              events_missed);
         }
         /* TODO: Add an application trace event for completion. */
         sys_trace_named_event("event completed", event.seq, processed_time);
